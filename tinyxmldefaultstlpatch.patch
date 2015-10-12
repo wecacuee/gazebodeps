@@ -1,0 +1,13 @@
+--- tinyxml.h	2015-10-09 01:08:15.242389911 -0400
++++ tinyxml.h	2013-05-09 13:41:31.000000000 -0400
+@@ -26,6 +26,10 @@
+ #ifndef TINYXML_INCLUDED
+ #define TINYXML_INCLUDED
+ 
++#ifndef TIXML_USE_STL
++	#define TIXML_USE_STL
++#endif
++
+ #ifdef _MSC_VER
+ #pragma warning( push )
+ #pragma warning( disable : 4530 )

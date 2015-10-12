@@ -1,0 +1,184 @@
+diff -r 61c5538c461a CMakeLists.txt
+--- a/CMakeLists.txt	Fri Oct 02 15:44:25 2015 -0700
++++ b/CMakeLists.txt	Sun Oct 11 23:39:04 2015 -0500
+@@ -45,6 +45,9 @@
+   return()
+ endif()
+ 
++set(NO_BUILD_GUI False CACHE BOOL "Whether to build GUI components. Use when QT
++not available")
++
+ # Documentation
+ add_subdirectory(doc)
+ 
+@@ -340,9 +343,6 @@
+     gazebo
+     gazebo_common
+     gazebo_gimpact
+-    gazebo_gui
+-    gazebo_gui_building
+-    gazebo_gui_viewers
+     gazebo_math
+     gazebo_msgs
+     gazebo_ode
+@@ -356,6 +356,14 @@
+     gazebo_skyx
+     gazebo_transport
+     gazebo_util)
++  if (not ${NO_BUILD_GUI})
++      set(PKG_LIBRARIES
++          ${PKG_LIBRARIES}
++          gazebo_gui
++          gazebo_gui_building
++          gazebo_gui_viewers
++          )
++  endif()
+ 
+   if (NOT CCD_FOUND)
+     set(PKG_LIBRARIES ${PKG_LIBRARIES} gazebo_ccd)
+diff -r 61c5538c461a cmake/SearchForStuff.cmake
+--- a/cmake/SearchForStuff.cmake	Fri Oct 02 15:44:25 2015 -0700
++++ b/cmake/SearchForStuff.cmake	Sun Oct 11 23:39:04 2015 -0500
+@@ -389,10 +389,12 @@
+ 
+ ########################################
+ # Find QT
+-find_package (Qt4)
+-if (NOT QT4_FOUND)
+-  BUILD_ERROR("Missing: Qt4")
+-endif()
++if (not ${NO_BUILD_GUI})
++    find_package (Qt4)
++    if (NOT QT4_FOUND)
++      BUILD_ERROR("Missing: Qt4")
++    endif()
++endif() 
+ 
+ ########################################
+ # Find Boost, if not specified manually
+diff -r 61c5538c461a gazebo/CMakeLists.txt
+--- a/gazebo/CMakeLists.txt	Fri Oct 02 15:44:25 2015 -0700
++++ b/gazebo/CMakeLists.txt	Sun Oct 11 23:39:04 2015 -0500
+@@ -22,14 +22,18 @@
+ add_subdirectory(transport)
+ add_subdirectory(common)
+ add_subdirectory(rendering)
+-add_subdirectory(gui)
++if (not ${NO_BUILD_GUI})
++    add_subdirectory(gui)
++endif()
+ add_subdirectory(physics)
+ add_subdirectory(sensors)
+ add_subdirectory(util)
+ 
+ add_dependencies(gazebo_physics gazebo_msgs)
+ add_dependencies(gazebo_physics_ode gazebo_msgs)
+-add_dependencies(gazebo_gui gazebo_msgs)
++if (not ${NO_BUILD_GUI})
++    add_dependencies(gazebo_gui gazebo_msgs)
++endif()
+ add_dependencies(gazebo_rendering gazebo_msgs)
+ add_dependencies(gazebo_sensors gazebo_rendering)
+ 
+@@ -45,7 +49,10 @@
+ 
+ 
+ gz_add_executable(gzserver server_main.cc Server.cc Master.cc gazebo.cc)
+-gz_add_executable(gazebo gazebo_main.cc Server.cc Master.cc gazebo.cc)
++
++if (not ${NO_BUILD_GUI})
++    gz_add_executable(gazebo gazebo_main.cc Server.cc Master.cc gazebo.cc)
++endif()
+ 
+ target_link_libraries(gzserver
+   gazebo_common
+@@ -58,26 +65,30 @@
+   pthread
+ )
+ 
+-target_link_libraries(gazebo
+-  gazebo_common
+-  gazebo_util
+-  gazebo_transport
+-  gazebo_physics
+-  gazebo_sensors
+-  gazebo_rendering
+-  gazebo_msgs
+-  gazebo_gui
+-  pthread
+-)
++if (not ${NO_BUILD_GUI})
++    target_link_libraries(gazebo
++      gazebo_common
++      gazebo_util
++      gazebo_transport
++      gazebo_physics
++      gazebo_sensors
++      gazebo_rendering
++      gazebo_msgs
++      gazebo_gui
++      pthread
++    )
++endif()
+ 
+ if ("${CMAKE_BUILD_TYPE}" STREQUAL "CHECK")
+   target_link_libraries(gzserver gcov)
+ endif()
+ 
+ gz_install_executable(gzserver)
+-gz_install_executable(gazebo)
+ manpage(gzserver 1)
+-manpage(gazebo 1)
++if (not ${NO_BUILD_GUI})
++    gz_install_executable(gazebo)
++    manpage(gazebo 1)
++endif()
+ 
+ gz_add_library(libgazebo Server.cc Master.cc gazebo.cc)
+ set_target_properties(libgazebo PROPERTIES OUTPUT_NAME "gazebo")
+diff -r 61c5538c461a test/integration/CMakeLists.txt
+--- a/test/integration/CMakeLists.txt	Fri Oct 02 15:44:25 2015 -0700
++++ b/test/integration/CMakeLists.txt	Sun Oct 11 23:39:04 2015 -0500
+@@ -127,11 +127,13 @@
+ 
+ gz_build_dri_tests(${dri_tests})
+ 
+-set(qt_tests
+-  insert_model.cc
+-)
++if (NOT ${NO_BUILD_GUI})
++    set(qt_tests
++        insert_model.cc
++        )
+ 
+-gz_build_qt_tests(${qt_tests})
++    gz_build_qt_tests(${qt_tests})
++endif()
+ 
+ if (ENABLE_TESTS_COMPILATION AND VALID_DRI_DISPLAY)
+   # Increase timeout, to account for model download time.
+diff -r 61c5538c461a tools/CMakeLists.txt
+--- a/tools/CMakeLists.txt	Fri Oct 02 15:44:25 2015 -0700
++++ b/tools/CMakeLists.txt	Sun Oct 11 23:39:04 2015 -0500
+@@ -28,13 +28,15 @@
+ 
+ gz_build_tests(${test_sources})
+ 
+-add_executable(gz gz.cc gz_topic.cc gz_log.cc)
+-target_link_libraries(gz
+- gazebo_msgs gazebo_common gazebo_transport gazebo_gui gazebo_physics
+- gazebo_sensors ${QT_LIBRARIES} ${Boost_LIBRARIES} pthread)
+-gz_install_executable(gz)
++if (not ${NO_BUILD_GUI})
++    add_executable(gz gz.cc gz_topic.cc gz_log.cc)
++    target_link_libraries(gz
++     gazebo_msgs gazebo_common gazebo_transport gazebo_gui gazebo_physics
++     gazebo_sensors ${QT_LIBRARIES} ${Boost_LIBRARIES} pthread)
++    gz_install_executable(gz)
+ 
+-roffman(gz 1)
++    roffman(gz 1)
++endif()
+ 
+ install (PROGRAMS gzprop DESTINATION ${BIN_INSTALL_DIR})
+ manpage(gzprop 1)
